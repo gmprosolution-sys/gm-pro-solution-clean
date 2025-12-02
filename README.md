@@ -13,3 +13,4 @@ Configuration:
 
 Notes:
 - This is a starter project; Tailwind build is required for full styling. If you don't want to install Tailwind, the app still renders with basic styles.
+
