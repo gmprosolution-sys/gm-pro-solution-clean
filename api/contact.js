@@ -1,26 +1,37 @@
+// redeploy bump
+
 export default async function handler(req, res) {
+  // Solo permitimos POST
   if (req.method !== "POST") {
-    return res.status(405).json({ ok: false, error: "Method not allowed" });
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const ZAPIER_WEBHOOK = "https://hooks.zapier.com/hooks/catch/25300476/usph5ce/";
+    // Reenviamos los datos a Zapier (server-side, sin CORS)
+    const zapierResponse = await fetch(
+      "https://hooks.zapier.com/hooks/catch/25300476/usph5ce/",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+      }
+    );
 
-    const zap = await fetch(ZAPIER_WEBHOOK, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req.body || {}),
-    });
-
-    if (!zap.ok) {
-      const text = await zap.text().catch(() => "");
-      return res
-        .status(502)
-        .json({ ok: false, error: `Zapier error: ${zap.status} ${text}` });
+    if (!zapierResponse.ok) {
+      throw new Error("Zapier request failed");
     }
 
-    return res.status(200).json({ ok: true });
-  } catch (err) {
-    return res.status(500).json({ ok: false, error: String(err?.message || err) });
+    return res.status(200).json({
+      success: true,
+      message: "Form sent successfully",
+    });
+  } catch (error) {
+    console.error("API /contact error:", error);
+    return res.status(500).json({
+      success: false,
+      error: "Server error",
+    });
   }
 }
