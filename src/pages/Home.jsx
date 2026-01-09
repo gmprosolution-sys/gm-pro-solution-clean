@@ -7,47 +7,80 @@ import inspectionImage from "/images/inspection.jpg";
 import taxImage from "/images/tax.jpg";
 import notaryImage from "/images/notary.jpg";
 
-const ZAPIER_WEBHOOK = "https://hooks.zapier.com/hooks/catch/25300476/usph5ce/";
+const emptyForm = {
+  name: "",
+  email: "",
+  phone: "",
+  vin: "",
+  year: "",
+  make: "",
+  model: "",
+  color: "",
+  damage: "",
+  loss: "",
+  message: "",
+  file: null,
+};
 
 export default function Home() {
   const [selectedService, setSelectedService] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    vin: "",
-    year: "",
-    make: "",
-    model: "",
-    color: "",
-    damage: "",
-    loss: "",
-    message: "",
-    file: null,
-  });
+  const [formData, setFormData] = useState(emptyForm);
+  const [sending, setSending] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
-    setFormData({
-      ...formData,
+    setFormData((prev) => ({
+      ...prev,
       [name]: files ? files[0] : value,
-    });
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (sending) return;
 
-    const formToSend = new FormData();
-    Object.keys(formData).forEach((key) => {
-      formToSend.append(key, formData[key]);
-    });
+    try {
+      setSending(true);
 
-    formToSend.append("service", selectedService);
+      // Enviamos JSON a nuestra API (sin CORS)
+      const payload = {
+        service: selectedService || "",
+        name: formData.name || "",
+        email: formData.email || "",
+        phone: formData.phone || "",
+        message: formData.message || "",
+      };
 
-    await fetch(ZAPIER_WEBHOOK, { method: "POST", body: formToSend });
+      if (selectedService === "Auto Damage Appraisal") {
+        payload.vin = formData.vin || "";
+        payload.year = formData.year || "";
+        payload.make = formData.make || "";
+        payload.model = formData.model || "";
+        payload.color = formData.color || "";
+        payload.damage = formData.damage || "";
+        payload.loss = formData.loss || "";
+      }
 
-    alert("✅ Thank you! Your information has been submitted successfully.");
-    setSelectedService(null);
+      const resp = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok || !data.ok) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
+      }
+
+      alert("✅ Thank you! Your information has been submitted successfully.");
+      setSelectedService(null);
+      setFormData(emptyForm);
+    } catch (err) {
+      console.error("SEND ERROR:", err);
+      alert("❌ No se pudo enviar. Abre F12 > Console y mira 'SEND ERROR'.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -68,7 +101,7 @@ export default function Home() {
         </p>
       </div>
 
-      {/* HERO IMAGE */}
+      {/* HERO */}
       <img
         src={heroImage}
         alt="Professional"
@@ -76,10 +109,7 @@ export default function Home() {
       />
 
       {/* SERVICES */}
-      <div
-        id="inspection"
-        className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 w-full max-w-6xl"
-      >
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 w-full max-w-6xl">
         {[
           {
             name: "Auto Damage Appraisal",
@@ -90,21 +120,21 @@ export default function Home() {
             name: "Tax Services",
             img: taxImage,
             desc: "Efficient and reliable tax filing and advisory.",
-            id: "taxes",
           },
           {
             name: "Notary Services",
             img: notaryImage,
             desc: "Certified notary and document authentication.",
-            id: "notary",
           },
         ].map((service) => (
           <motion.div
             key={service.name}
-            id={service.id}
             whileHover={{ scale: 1.05 }}
             className="bg-white text-gray-900 p-6 rounded-2xl shadow-lg cursor-pointer"
-            onClick={() => setSelectedService(service.name)}
+            onClick={() => {
+              setSelectedService(service.name);
+              setFormData(emptyForm);
+            }}
           >
             <img
               src={service.img}
@@ -117,20 +147,19 @@ export default function Home() {
         ))}
       </div>
 
-      {/* CONTACT SECTION */}
+      {/* CONTACT */}
       <div id="contact" className="mt-16 text-center max-w-xl">
         <h2 className="text-3xl font-bold mb-4">Contact Us</h2>
         <p className="text-gray-300">
           Reach out for any of our services. We’re here to help you.
         </p>
         <p className="text-blue-300 font-semibold mt-2">
-          Phone: (407) 509-9595  
-          <br />
+          Phone: (407) 509-9595<br />
           Email: gmprosolution@gmail.com
         </p>
       </div>
 
-      {/* MODAL FORM */}
+      {/* MODAL */}
       <AnimatePresence>
         {selectedService && (
           <motion.div
@@ -150,72 +179,36 @@ export default function Home() {
                   <h3 className="font-semibold mb-1">📋 Client Information</h3>
                   <input
                     name="name"
+                    required
                     onChange={handleChange}
                     placeholder="Name"
                     className="w-full border p-2 rounded mb-2"
-                    required
                   />
                   <input
                     name="email"
+                    required
                     onChange={handleChange}
                     placeholder="Email"
                     className="w-full border p-2 rounded mb-2"
-                    required
                   />
                   <input
                     name="phone"
                     onChange={handleChange}
                     placeholder="Phone"
-                    className="w-full border p-2 rounded"
+                    className="w-full border p-2 rounded mb-2"
                   />
                 </div>
 
-                {/* VEHICLE INFO */}
+                {/* ONLY FOR APPRAISAL */}
                 {selectedService === "Auto Damage Appraisal" && (
                   <>
-                    <h3 className="font-semibold mb-1">🚗 Vehicle Information</h3>
-                    <input
-                      name="vin"
-                      onChange={handleChange}
-                      placeholder="VIN"
-                      className="w-full border p-2 rounded mb-2"
-                    />
-                    <input
-                      name="year"
-                      onChange={handleChange}
-                      placeholder="Year"
-                      className="w-full border p-2 rounded mb-2"
-                    />
-                    <input
-                      name="make"
-                      onChange={handleChange}
-                      placeholder="Make"
-                      className="w-full border p-2 rounded mb-2"
-                    />
-                    <input
-                      name="model"
-                      onChange={handleChange}
-                      placeholder="Model"
-                      className="w-full border p-2 rounded mb-2"
-                    />
-                    <input
-                      name="color"
-                      onChange={handleChange}
-                      placeholder="Color"
-                      className="w-full border p-2 rounded mb-2"
-                    />
-                    <textarea
-                      name="damage"
-                      onChange={handleChange}
-                      placeholder="Damage Description"
-                      className="w-full border p-2 rounded mb-2"
-                    />
-                    <textarea
-                      name="loss"
-                      onChange={handleChange}
-                      placeholder="Fact of Loss"
-                      className="w-full border p-2 rounded mb-2"
-                    />
+                    <input name="vin" onChange={handleChange} placeholder="VIN" className="w-full border p-2 rounded mb-2" />
+                    <input name="year" onChange={handleChange} placeholder="Year" className="w-full border p-2 rounded mb-2" />
+                    <input name="make" onChange={handleChange} placeholder="Make" className="w-full border p-2 rounded mb-2" />
+                    <input name="model" onChange={handleChange} placeholder="Model" className="w-full border p-2 rounded mb-2" />
+                    <input name="color" onChange={handleChange} placeholder="Color" className="w-full border p-2 rounded mb-2" />
+                    <textarea name="damage" onChange={handleChange} placeholder="Damage Description" className="w-full border p-2 rounded mb-2" />
+                    <textarea name="loss" onChange={handleChange} placeholder="Fact of Loss" className="w-full border p-2 rounded mb-2" />
                   </>
                 )}
 
@@ -225,19 +218,16 @@ export default function Home() {
                   onChange={handleChange}
                   placeholder="Additional Message"
                   className="w-full border p-2 rounded mb-2"
+                  required
                 />
 
-                {/* FILE UPLOAD */}
+                {/* FILE (no se envía en esta versión gratis) */}
                 <div>
-                  <label className="block font-semibold mb-1">
-                    Upload documents or photos:
-                  </label>
-                  <input
-                    type="file"
-                    name="file"
-                    onChange={handleChange}
-                    className="w-full"
-                  />
+                  <label className="block font-semibold mb-1">Upload documents or photos:</label>
+                  <input type="file" name="file" onChange={handleChange} className="w-full" />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Nota: para evitar bloqueos del navegador (CORS), el envío gratis va sin adjuntos.
+                  </p>
                 </div>
 
                 {/* BUTTONS */}
@@ -246,14 +236,17 @@ export default function Home() {
                     type="button"
                     onClick={() => setSelectedService(null)}
                     className="bg-gray-400 hover:bg-gray-500 text-white px-4 py-2 rounded"
+                    disabled={sending}
                   >
                     Exit
                   </button>
+
                   <button
                     type="submit"
                     className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded"
+                    disabled={sending}
                   >
-                    Send
+                    {sending ? "Sending..." : "Send"}
                   </button>
                 </div>
               </form>
@@ -266,9 +259,7 @@ export default function Home() {
       <p className="mt-8 text-blue-200 italic">Hablamos Español — Contáctenos hoy.</p>
 
       <footer className="bg-blue-950 text-white text-center py-6 mt-12 w-full">
-        <p className="text-sm">
-          © {new Date().getFullYear()} GM Pro Solution. All rights reserved.
-        </p>
+        <p className="text-sm">© {new Date().getFullYear()} GM Pro Solution. All rights reserved.</p>
       </footer>
     </motion.div>
   );

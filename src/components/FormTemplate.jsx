@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 
 export default function FormTemplate({ title }) {
+  const [status, setStatus] = useState("");
+  const [file, setFile] = useState(null);
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -8,28 +11,42 @@ export default function FormTemplate({ title }) {
     message: "",
   });
 
-  const [status, setStatus] = useState("");
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleFileChange = (e) => {
+    setFile(e.target.files[0]);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("Sending...");
 
+    const data = new FormData();
+    data.append("name", formData.name);
+    data.append("email", formData.email);
+    data.append("phone", formData.phone);
+    data.append("message", formData.message);
+
+    // Important: append file if it exists
+    if (file) {
+      data.append("file", file);
+    }
+
     try {
-      const response = await fetch("https://hooks.zapier.com/hooks/catch/25300476/usph5ce/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetch(
+        "https://hooks.zapier.com/hooks/catch/25300476/usph5ce/",
+        {
+          method: "POST",
+          body: data, // <-- NO JSON, now FormData
+        }
+      );
 
       if (response.ok) {
         setStatus("✅ Message sent successfully!");
         setFormData({ name: "", email: "", phone: "", message: "" });
+        setFile(null);
       } else {
         setStatus("❌ Something went wrong.");
       }
@@ -40,7 +57,9 @@ export default function FormTemplate({ title }) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#0b1c3a] text-white p-6">
-      <h2 className="text-3xl font-bold mb-6">{title || "Contact Form"}</h2>
+      <h2 className="text-3xl font-bold mb-6">
+        {title || "Contact Form"}
+      </h2>
 
       <form
         onSubmit={handleSubmit}
@@ -82,6 +101,13 @@ export default function FormTemplate({ title }) {
           value={formData.message}
           required
           className="w-full mb-4 p-2 border rounded h-24"
+        />
+
+        <label className="block mb-2 font-semibold">Upload File</label>
+        <input
+          type="file"
+          onChange={handleFileChange}
+          className="w-full mb-4"
         />
 
         <button
